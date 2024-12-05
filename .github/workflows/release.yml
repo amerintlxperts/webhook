@@ -39,7 +39,7 @@ jobs:
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.6.0
         with:
-          charts_dir: "./"
+          charts_dir: "chart"
           pages_branch: gh-pages
           install_dir: ./docs
           packages_with_index: true
