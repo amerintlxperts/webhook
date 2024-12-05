@@ -1,6 +1,7 @@
+---
 apiVersion: v2
 name: webhook
 description: A simple webhook handler application
 version: 1.0.0
 type: application
-
+icon: https://www.fortinet.com/favicon.ico
