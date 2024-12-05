@@ -41,7 +41,7 @@ jobs:
         with:
           charts_dir: "."
           pages_branch: gh-pages
-          install_dir: ./docs
           packages_with_index: true
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          CR_PACKAGE_PATH: "docs"
