@@ -39,4 +39,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/mkdocs:latest
+          tags: ghcr.io/${{ github.repository_owner }}/webhook:latest
