@@ -6,9 +6,7 @@ on:
     branches:
       - main
     paths:
-      - 'Chart.yaml'
-      - 'values.yaml'
-      - 'templates/**'
+      - 'charts/**'
   workflow_dispatch:
 
 concurrency:
