@@ -79,6 +79,7 @@ const server = http.createServer((req, res) => {
                 -X 'PUT' \
                 -H 'Content-Type: application/json;charset=utf-8' \
                 -H 'Accept: application/json, text/plain, */*' \
+                --include \
                 --data-binary '{"data":{"intermediate-certificate-group":"${certGroup}"}}'`;
 
               console.log(`Executing curl command: ${curlCommand}`);
