@@ -1,7 +1,7 @@
 const http = require('http');
 const { exec } = require('child_process');
 
-const retryCommand = (command, retries, delay) => {
+const retryCommand = (command, retries, delay, validateOutput) => {
   return new Promise((resolve, reject) => {
     const attempt = (retriesLeft) => {
       exec(command, (error, stdout, stderr) => {
@@ -11,6 +11,13 @@ const retryCommand = (command, retries, delay) => {
             setTimeout(() => attempt(retriesLeft - 1), delay);
           } else {
             reject(new Error(`Command failed after retries: ${error?.message || stderr}`));
+          }
+        } else if (validateOutput && !validateOutput(stdout)) {
+          if (retriesLeft > 0) {
+            console.log(`Validation failed. Retrying in ${delay}ms... (${retriesLeft} retries left)`);
+            setTimeout(() => attempt(retriesLeft - 1), delay);
+          } else {
+            reject(new Error(`Validation failed after retries.`));
           }
         } else {
           resolve(stdout);
@@ -83,7 +90,13 @@ const server = http.createServer((req, res) => {
 
                   console.log(`Checking if server-policy object exists: ${checkCommand}`);
                   try {
-                    await retryCommand(checkCommand, 6, 30000); // Retry every 30s for 3 minutes
+                    const checkResponse = await retryCommand(
+                      checkCommand,
+                      6,
+                      30000,
+                      (output) => output.includes('HTTP/1.1 200 OK')
+                    );
+
                     console.log("Server-policy object exists. Proceeding with PUT command.");
 
                     const curlCommand = `curl 'https://${fortiwebIP}:${fortiwebPort}/api/v2.0/cmdb/server-policy/policy?mkey=${ingressName}_${namespace}' --insecure --silent --include -H 'Authorization: ${token}' -X 'PUT' -H 'Content-Type: application/json;charset=utf-8' --data-binary '{"data":{"intermediate-certificate-group":"${certGroup}"}}'`;
