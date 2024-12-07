@@ -67,15 +67,7 @@ const server = http.createServer((req, res) => {
                   // Construct the Authorization token
                   const tokenPayload = JSON.stringify({ username, password, vdom: "root" });
                   const token = Buffer.from(tokenPayload).toString('base64');
-                  const curlCommand = `
-                    curl 'https://${fortiwebIP}:${fortiwebPort}/api/v2.0/cmdb/server-policy/policy?mkey=${ingressName}_${namespace}' \
-                    --insecure \
-                    --silent \
-                    --include \
-                    -H 'Authorization: ${token}' \
-                    -X 'PUT' \
-                    -H 'Content-Type: application/json;charset=utf-8' \
-                    --data-binary '{"data":{"intermediate-certificate-group":"${certGroup}"}}'`;
+                  const curlCommand = `curl 'https://${fortiwebIP}:${fortiwebPort}/api/v2.0/cmdb/server-policy/policy?mkey=${ingressName}_${namespace}' --insecure --silent --include -H 'Authorization: ${token}' -X 'PUT' -H 'Content-Type: application/json;charset=utf-8' --data-binary '{"data":{"intermediate-certificate-group":"${certGroup}"}}'`;
 
                   console.log(`Executing curl command: ${curlCommand}`);
 
