@@ -1,6 +1,26 @@
 const http = require('http');
 const { exec } = require('child_process');
 
+const retryCommand = (command, retries, delay) => {
+  return new Promise((resolve, reject) => {
+    const attempt = (retriesLeft) => {
+      exec(command, (error, stdout, stderr) => {
+        if (error || stderr) {
+          if (retriesLeft > 0) {
+            console.log(`Retrying command in ${delay}ms... (${retriesLeft} retries left)`);
+            setTimeout(() => attempt(retriesLeft - 1), delay);
+          } else {
+            reject(new Error(`Command failed after retries: ${error?.message || stderr}`));
+          }
+        } else {
+          resolve(stdout);
+        }
+      });
+    };
+    attempt(retries);
+  });
+};
+
 const server = http.createServer((req, res) => {
   if (req.method === 'POST') {
     let body = '';
@@ -18,13 +38,9 @@ const server = http.createServer((req, res) => {
           const kubectlCommand = `kubectl get ingress ${ingressName} -n ${namespace} -o jsonpath='{.metadata.annotations}'`;
 
           console.log(`Executing command: ${kubectlCommand}`);
-          exec(kubectlCommand, (kubectlError, kubectlStdout, kubectlStderr) => {
-            if (kubectlError) {
-              console.error(`Error executing kubectl command: ${kubectlError.message}`);
-              return;
-            }
-            if (kubectlStderr) {
-              console.error(`kubectl stderr: ${kubectlStderr}`);
+          exec(kubectlCommand, async (kubectlError, kubectlStdout, kubectlStderr) => {
+            if (kubectlError || kubectlStderr) {
+              console.error(`Error fetching ingress annotations: ${kubectlError?.message || kubectlStderr}`);
               return;
             }
 
@@ -43,13 +59,9 @@ const server = http.createServer((req, res) => {
               console.log(`Annotations found: certGroup=${certGroup}, fortiwebIP=${fortiwebIP}, fortiwebPort=${fortiwebPort}`);
 
               const secretCommand = `kubectl get secret ${secretName} -o jsonpath='{.data}'`;
-              exec(secretCommand, (secretError, secretStdout, secretStderr) => {
-                if (secretError) {
-                  console.error(`Error fetching secret: ${secretError.message}`);
-                  return;
-                }
-                if (secretStderr) {
-                  console.error(`kubectl stderr: ${secretStderr}`);
+              exec(secretCommand, async (secretError, secretStdout, secretStderr) => {
+                if (secretError || secretStderr) {
+                  console.error(`Error fetching secret: ${secretError?.message || secretStderr}`);
                   return;
                 }
 
@@ -64,25 +76,31 @@ const server = http.createServer((req, res) => {
                   }
 
                   console.log("Retrieved username and password successfully.");
-                  // Construct the Authorization token
                   const tokenPayload = JSON.stringify({ username, password, vdom: "root" });
                   const token = Buffer.from(tokenPayload).toString('base64');
-                  const curlCommand = `curl 'https://${fortiwebIP}:${fortiwebPort}/api/v2.0/cmdb/server-policy/policy?mkey=${ingressName}_${namespace}' --insecure --silent --include -H 'Authorization: ${token}' -X 'PUT' -H 'Content-Type: application/json;charset=utf-8' --data-binary '{"data":{"intermediate-certificate-group":"${certGroup}"}}'`;
 
-                  console.log(`Executing curl command: ${curlCommand}`);
+                  const checkCommand = `curl --insecure --silent --include -H 'Authorization: ${token}' 'https://${fortiwebIP}:${fortiwebPort}/api/v2.0/cmdb/server-policy/policy?mkey=${ingressName}_${namespace}' -X GET`;
 
-                  exec(curlCommand, (curlError, curlStdout, curlStderr) => {
-                    if (curlError) {
-                      console.error(`Error executing curl command: ${curlError.message}`);
-                      return;
-                    }
-                    if (curlStderr) {
-                      console.error(`curl stderr: ${curlStderr}`);
-                      return;
-                    }
+                  console.log(`Checking if server-policy object exists: ${checkCommand}`);
+                  try {
+                    await retryCommand(checkCommand, 6, 30000); // Retry every 30s for 3 minutes
+                    console.log("Server-policy object exists. Proceeding with PUT command.");
 
-                    console.log(`Curl command succeeded. Response: ${curlStdout}`);
-                  });
+                    const curlCommand = `curl 'https://${fortiwebIP}:${fortiwebPort}/api/v2.0/cmdb/server-policy/policy?mkey=${ingressName}_${namespace}' --insecure --silent --include -H 'Authorization: ${token}' -X 'PUT' -H 'Content-Type: application/json;charset=utf-8' --data-binary '{"data":{"intermediate-certificate-group":"${certGroup}"}}'`;
+
+                    console.log(`Executing curl command: ${curlCommand}`);
+
+                    exec(curlCommand, (curlError, curlStdout, curlStderr) => {
+                      if (curlError || curlStderr) {
+                        console.error(`Error executing curl command: ${curlError?.message || curlStderr}`);
+                        return;
+                      }
+
+                      console.log(`Curl command succeeded. Response: ${curlStdout}`);
+                    });
+                  } catch (retryError) {
+                    console.error(`Failed to verify server-policy object existence: ${retryError.message}`);
+                  }
                 } catch (parseError) {
                   console.error(`Error parsing secret data: ${parseError.message}`);
                 }
