@@ -74,6 +74,7 @@ const server = http.createServer((req, res) => {
               const curlCommand = `
                 curl 'https://${fortiwebIP}:${fortiwebPort}/api/v2.0/cmdb/server-policy/policy?mkey=${ingressName}_${namespace}' \
                 --insecure \
+                --silent \
                 -H "Authorization:${token}" \
                 -k \
                 -X 'PUT' \
