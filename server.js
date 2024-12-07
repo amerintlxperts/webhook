@@ -16,13 +16,14 @@ const server = http.createServer((req, res) => {
           const namespace = eventMeta.namespace;
           const ingressName = eventMeta.name;
 
-          // Fetch ingress annotations
-          const kubectlAnnotationsCmd = `kubectl get ingress ${ingressName} -n ${namespace} -o jsonpath='{.metadata.annotations}'`;
-          console.log(`Executing command: ${kubectlAnnotationsCmd}`);
+          // Construct the kubectl command to get annotations
+          const kubectlCommand = `kubectl get ingress ${ingressName} -n ${namespace} -o jsonpath='{.metadata.annotations}'`;
 
-          exec(kubectlAnnotationsCmd, (error, stdout, stderr) => {
+          console.log(`Executing command: ${kubectlCommand}`);
+
+          exec(kubectlCommand, (error, stdout, stderr) => {
             if (error) {
-              console.error(`Error fetching ingress annotations: ${error.message}`);
+              console.error(`Error executing kubectl command: ${error.message}`);
               return;
             }
             if (stderr) {
@@ -30,66 +31,70 @@ const server = http.createServer((req, res) => {
               return;
             }
 
-            console.log(`Ingress annotations: ${stdout}`);
+            // Parse annotations JSON
             const annotations = JSON.parse(stdout);
+            const certGroup = annotations["server-policy-intermediate-certificate-group"];
+            const fortiwebIP = annotations["fortiweb-ip"];
+            const fortiwebPort = annotations["fortiweb-port"];
 
-            // Check for the specific annotation
-            if (annotations['server-policy-intermediate-certificate-group']) {
-              const value = annotations['server-policy-intermediate-certificate-group'];
-              console.log(`Found annotation 'server-policy-intermediate-certificate-group' with value: ${value}`);
+            if (!certGroup || !fortiwebIP || !fortiwebPort) {
+              console.error("Missing required annotations.");
+              return;
+            }
 
-              // Retrieve username and password
-              const usernameCmd = `kubectl get secret fortiweb-login-secret -o jsonpath="{.data.username}" | base64 -d`;
-              const passwordCmd = `kubectl get secret fortiweb-login-secret -o jsonpath="{.data.password}" | base64 -d`;
+            console.log(`Annotations found: certGroup=${certGroup}, fortiwebIP=${fortiwebIP}, fortiwebPort=${fortiwebPort}`);
 
-              exec(usernameCmd, (usernameError, usernameStdout, usernameStderr) => {
-                if (usernameError || usernameStderr) {
-                  console.error(`Error fetching username: ${usernameError || usernameStderr}`);
+            // Retrieve username and password from the secret
+            const getSecretCommand = `kubectl get secret ${annotations["fortiweb-login"]} -o jsonpath="{.data}"`;
+            exec(getSecretCommand, (secretError, secretStdout, secretStderr) => {
+              if (secretError) {
+                console.error(`Error fetching secret: ${secretError.message}`);
+                return;
+              }
+              if (secretStderr) {
+                console.error(`kubectl stderr: ${secretStderr}`);
+                return;
+              }
+
+              const secretData = JSON.parse(secretStdout);
+              const username = Buffer.from(secretData.username, 'base64').toString('utf-8');
+              const password = Buffer.from(secretData.password, 'base64').toString('utf-8');
+
+              if (!username || !password) {
+                console.error("Error: Could not retrieve username or password from the secret.");
+                return;
+              }
+
+              console.log(`Retrieved username and password successfully.`);
+
+              // Create the token
+              const token = Buffer.from(JSON.stringify({ username, password, vdom: "root" })).toString('base64');
+
+              // Execute the curl command
+              const curlCommand = `
+                curl 'https://${fortiwebIP}:${fortiwebPort}/api/v2.0/cmdb/server-policy/policy?mkey=${ingressName}_${namespace}' \
+                --insecure \
+                -H "Authorization:${token}" \
+                -k \
+                -X 'PUT' \
+                -H 'Content-Type: application/json;charset=utf-8' \
+                -H 'Accept: application/json, text/plain, */*' \
+                --data-binary '{"data":{"intermediate-certificate-group":"${certGroup}"}}'`;
+
+              console.log(`Executing curl command: ${curlCommand}`);
+
+              exec(curlCommand, (curlError, curlStdout, curlStderr) => {
+                if (curlError) {
+                  console.error(`Error executing curl command: ${curlError.message}`);
                   return;
                 }
-                const username = usernameStdout.trim();
-
-                exec(passwordCmd, (passwordError, passwordStdout, passwordStderr) => {
-                  if (passwordError || passwordStderr) {
-                    console.error(`Error fetching password: ${passwordError || passwordStderr}`);
-                    return;
-                  }
-                  const password = passwordStdout.trim();
-
-                  // Construct the authorization token
-                  const token = Buffer.from(JSON.stringify({
-                    username,
-                    password,
-                    vdom: "root"
-                  })).toString('base64');
-
-                  // Construct and execute the curl command
-                  const curlCmd = `curl 'https://10.0.0.4/api/v2.0/cmdb/server-policy/policy?mkey=${ingressName}_${ingressName}' ` +
-                    `--insecure ` +
-                    `-H "Authorization:${token}" ` +
-                    `-k ` +
-                    `-X 'PUT' ` +
-                    `-H 'Content-Type: application/json;charset=utf-8' ` +
-                    `-H 'Accept: application/json, text/plain, */*' ` +
-                    `--data-binary '{"data":{"intermediate-certificate-group":"${value}"}}'`;
-
-                  console.log(`Executing curl command: ${curlCmd}`);
-                  exec(curlCmd, (curlError, curlStdout, curlStderr) => {
-                    if (curlError) {
-                      console.error(`Error executing curl command: ${curlError.message}`);
-                      return;
-                    }
-                    if (curlStderr) {
-                      console.error(`Curl stderr: ${curlStderr}`);
-                      return;
-                    }
-                    console.log(`Curl response: ${curlStdout}`);
-                  });
-                });
+                if (curlStderr) {
+                  console.error(`curl stderr: ${curlStderr}`);
+                  return;
+                }
+                console.log(`Curl command output: ${curlStdout}`);
               });
-            } else {
-              console.log(`Annotation 'server-policy-intermediate-certificate-group' not found in ingress annotations.`);
-            }
+            });
           });
         }
       } catch (err) {
