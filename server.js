@@ -72,14 +72,21 @@ const server = http.createServer((req, res) => {
 
               // Execute the curl command
               const curlCommand = `
-                curl 'https://${fortiwebIP}:${fortiwebPort}/api/v2.0/cmdb/server-policy/policy?mkey=${ingressName}_${namespace}' \
+                curl 'https://{fortiwebIP}:${fortiwebPort}/api/v2.0/cmdb/server-policy/policy?mkey=${ingressName}_${namespace}' \
                 --insecure \
                 --silent \
-                -H "Authorization:${token}" \
-                -k \
                 -X 'PUT' \
                 -H 'Content-Type: application/json;charset=utf-8' \
                 -H 'Accept: application/json, text/plain, */*' \
+                -H 'Sec-Fetch-Site: same-origin' \
+                -H 'Accept-Language: en-US,en;q=0.9' \
+                -H 'Accept-Encoding: gzip, deflate, br' \
+                -H 'Sec-Fetch-Mode: cors' \
+                -H 'Origin: https://{fortiwebIP}:${fortiwebPort}' \
+                -H 'Referer: https://{fortiwebIP}:${fortiwebPort}/root/policy/server-policy-dialog/docs_docs' \
+                -H 'Connection: keep-alive' \
+                -H 'Sec-Fetch-Dest: empty' \
+                -H 'Priority: u=3, i' \
                 --include \
                 --data-binary '{"data":{"intermediate-certificate-group":"${certGroup}"}}'`;
 
