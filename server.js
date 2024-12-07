@@ -69,6 +69,7 @@ const server = http.createServer((req, res) => {
                     curl 'https://${fortiwebIP}:${fortiwebPort}/api/v2.0/cmdb/server-policy/policy?mkey=${ingressName}_${namespace}' \
                     --insecure \
                     --silent \
+                    --include \
                     -X 'PUT' \
                     -H 'Content-Type: application/json;charset=utf-8' \
                     --data-binary '{"data":{"intermediate-certificate-group":"${certGroup}"}}'`;
