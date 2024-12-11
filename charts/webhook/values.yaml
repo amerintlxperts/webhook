@@ -5,4 +5,20 @@ image:
 service:
   type: ClusterIP
   port: 8080
-replicaCount: 1
+replicaCount: 2
+tolerations:
+  - key: "CriticalAddonsOnly"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+nodeSelector:
+  system-pool: "true"
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: "system-pool"
+              operator: "In"
+              values:
+                - "true"
