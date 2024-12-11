@@ -1,21 +1,32 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webhook
+  name: {{.Release.Name}}
+  labels:
+    app.kubernetes.io/name: {{.Chart.Name}}
+    app.kubernetes.io/instance: {{.Release.Name}}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{.Values.replicaCount}}
   selector:
     matchLabels:
-      app: webhook
+      app.kubernetes.io/name: {{.Chart.Name}}
+      app.kubernetes.io/instance: {{.Release.Name}}
   template:
     metadata:
       labels:
-        app: webhook
+        app.kubernetes.io/name: {{.Chart.Name}}
+        app.kubernetes.io/instance: {{.Release.Name}}
     spec:
       containers:
-      - name: webhook
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        ports:
-        - containerPort: 8080
-
+        - name: {{.Chart.Name}}
+          image: "{{.Values.image.repository}}:{{.Values.image.tag}}"
+          imagePullPolicy: {{.Values.image.pullPolicy}}
+          ports:
+            - containerPort: 8080
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8}}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8}}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8}}
