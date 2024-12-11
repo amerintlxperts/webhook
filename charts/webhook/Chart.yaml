@@ -2,6 +2,6 @@
 apiVersion: v2
 name: webhook
 description: A webhook handler application for kubernetes.
-version: 1.0.2
+version: 1.0.3
 type: application
 icon: https://www.fortinet.com/favicon.ico
