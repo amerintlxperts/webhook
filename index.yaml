@@ -1,0 +1,24 @@
+apiVersion: v1
+entries:
+  webhook:
+  - apiVersion: v2
+    created: "2024-12-11T05:16:55.409770706Z"
+    description: A webhook handler application for kubernetes.
+    digest: e04eda001ea581ca5fde6b17c4bc18bde07215d5ca2508a49f2457f9120e41df
+    icon: https://www.fortinet.com/favicon.ico
+    name: webhook
+    type: application
+    urls:
+    - webhook-1.0.2.tgz
+    version: 1.0.2
+  - apiVersion: v2
+    created: "2024-12-11T05:14:48.438461924Z"
+    description: A webhook handler application for kubernetes.
+    digest: 253f58ed08155e87809b47fc493e00a4c125a798b78747e6a5b5861092d1da08
+    icon: https://www.fortinet.com/favicon.ico
+    name: webhook
+    type: application
+    urls:
+    - webhook-1.0.1.tgz
+    version: 1.0.1
+generated: "2024-12-11T05:16:55.409778641Z"
